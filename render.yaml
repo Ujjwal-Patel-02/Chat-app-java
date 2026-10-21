@@ -1,0 +1,20 @@
+# Render Blueprint: deploys the Spring Boot API as a free Docker web service.
+# Render dashboard → New → Blueprint → pick this repo. You'll be asked for the `sync: false` values.
+services:
+  - type: web
+    name: aurora-chat-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: APP_JWT_SECRET
+        generateValue: true          # long random secret, generated once by Render
+      - key: DATABASE_URL
+        sync: false                  # paste your Neon connection string (postgresql://...)
+      - key: APP_CORS_ALLOWED_ORIGINS
+        sync: false                  # e.g. https://aurora-chat.vercel.app,https://*.vercel.app
+      - key: APP_DEMO_DATA_ENABLED
+        value: "false"               # "true" seeds demo users on an empty database

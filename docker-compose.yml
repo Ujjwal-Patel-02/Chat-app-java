@@ -1,0 +1,35 @@
+# Optional: run the API against a real PostgreSQL locally (production-like).
+#   docker compose up --build      → API on http://localhost:8080
+# Then start the frontend with `npm run dev` inside ./frontend.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aurora
+      POSTGRES_USER: aurora
+      POSTGRES_PASSWORD: aurora
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aurora -d aurora"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://aurora:aurora@db:5432/aurora
+      APP_JWT_SECRET: local-docker-secret-change-me
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      APP_DEMO_DATA_ENABLED: "true"
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
