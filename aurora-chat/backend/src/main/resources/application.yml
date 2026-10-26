@@ -1,0 +1,82 @@
+# ---------------------------------------------------------------------------
+# Aurora Chat API configuration.
+# Every value can be overridden with an environment variable (see README).
+# ---------------------------------------------------------------------------
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+  error:
+    include-message: always
+  tomcat:
+    # Let Tomcat read the rest of an oversized upload so the browser receives the 413 message.
+    max-swallow-size: 100MB
+
+spring:
+  application:
+    name: aurora-chat
+  # Local development uses an embedded H2 file database (zero setup).
+  # In production set DATABASE_URL (Neon / Render / Supabase Postgres connection string).
+  datasource:
+    url: jdbc:h2:file:./data/aurora-chat;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        default_batch_fetch_size: 64
+        jdbc:
+          time_zone: UTC
+  servlet:
+    multipart:
+      max-file-size: ${APP_MEDIA_MAX_UPLOAD_MB:60}MB
+      max-request-size: ${APP_MEDIA_MAX_UPLOAD_MB:60}MB
+  jackson:
+    default-property-inclusion: always
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  jwt:
+    # Any long random string. ALWAYS override with APP_JWT_SECRET in production.
+    secret: ${APP_JWT_SECRET:change-me-local-development-secret-please-override-in-production}
+    expiration: ${APP_JWT_EXPIRATION:7d}
+  cors:
+    # Comma-separated list of allowed frontend origins (patterns like https://*.vercel.app work too).
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173}
+  demo-data:
+    # Seeds demo users + conversations on an EMPTY database (password: password123).
+    enabled: ${APP_DEMO_DATA_ENABLED:false}
+  # Public URL of this API (optional). Lets push notifications show photo previews when media is on local disk.
+  public-url: ${APP_PUBLIC_URL:${RENDER_EXTERNAL_URL:}}
+  keep-alive:
+    # Pings <url>/api/health every 10 minutes so the free Render instance never goes to sleep.
+    # On Render the URL is detected automatically (RENDER_EXTERNAL_URL). Set APP_KEEP_ALIVE_ENABLED=false to turn off.
+    enabled: ${APP_KEEP_ALIVE_ENABLED:true}
+    url: ${APP_KEEP_ALIVE_URL:${APP_PUBLIC_URL:${RENDER_EXTERNAL_URL:}}}
+    interval: ${APP_KEEP_ALIVE_INTERVAL:10m}
+  media:
+    # auto = Cloudinary when CLOUDINARY_URL is set, otherwise local disk. Values: auto | local | cloudinary
+    storage: ${APP_MEDIA_STORAGE:auto}
+    local-dir: ${APP_MEDIA_DIR:./data/uploads}
+    max-image-mb: ${APP_MEDIA_MAX_IMAGE_MB:10}
+    max-video-mb: ${APP_MEDIA_MAX_VIDEO_MB:50}
+    # From the Cloudinary dashboard: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+    cloudinary-url: ${CLOUDINARY_URL:}
+    cloudinary-folder: ${APP_MEDIA_CLOUDINARY_FOLDER:aurora-chat}
+  push:
+    enabled: ${APP_PUSH_ENABLED:true}
+    # Contact for push services (Apple requires a valid mailto: or https: URL).
+    subject: ${APP_PUSH_SUBJECT:mailto:notifications@aurora-chat.dev}
+    # Optional; generated and stored in the database when empty (npx web-push generate-vapid-keys format).
+    vapid-public-key: ${APP_PUSH_VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${APP_PUSH_VAPID_PRIVATE_KEY:}
+
+logging:
+  level:
+    org.springframework.web.socket.config.WebSocketMessageBrokerStats: WARN

@@ -1,0 +1,45 @@
+name: Keep backend awake
+
+# Free Render services go to sleep after 15 minutes without traffic. This scheduled event calls the
+# backend's /api/health every 10 minutes. (The backend also pings itself every 10 minutes; this is a
+# second, independent safety net that can also wake it up if it ever falls asleep.)
+#
+# Setup: GitHub repo → Settings → Secrets and variables → Actions → Variables → New repository variable
+#   Name: BACKEND_URL     Value: https://<your-service>.onrender.com
+#
+# Note: GitHub runs scheduled jobs on a best-effort basis (they can start a few minutes late), only on the
+# default branch, and pauses them after 60 days without commits in a public repo. Private repos have a
+# monthly Actions minutes quota that a 10-minute schedule would use up, so the job skips itself there
+# unless you set the variable KEEP_ALIVE_IN_PRIVATE_REPO to "true".
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    if: ${{ !github.event.repository.private || vars.KEEP_ALIVE_IN_PRIVATE_REPO == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Ping the backend
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          if [ -z "$BACKEND_URL" ]; then
+            echo "::notice::Set the BACKEND_URL repository variable (Settings → Secrets and variables → Actions → Variables) to enable keep-alive."
+            exit 0
+          fi
+          url="${BACKEND_URL%/}/api/health"
+          echo "Pinging $url"
+          # A sleeping free instance can take up to a minute to wake up, so allow time and retry.
+          body=$(curl --fail --silent --show-error --max-time 100 --retry 3 --retry-delay 15 --retry-all-errors "$url")
+          echo "Backend answered: $body"
+          echo "Backend answered: \`$body\`" >> "$GITHUB_STEP_SUMMARY"
